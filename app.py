@@ -10,19 +10,24 @@ from sklearn.decomposition import PCA
 from scipy.spatial import procrustes
 from numpy.linalg import norm
 from scipy.spatial.distance import cosine
+import os
+import csv
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("data/models/shape_predictor_68_face_landmarks.dat")
 
 
 def get_landmarks(image_path):
-    image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = detector(gray)
-    for face in faces:
-        landmarks = predictor(gray, face)
-        matrix = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(68)]
-        return np.asarray(matrix), faces
+    try:
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = detector(gray)
+        for face in faces:
+            landmarks = predictor(gray, face)
+            matrix = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(68)]
+            return np.asarray(matrix), faces
+    except Exception as e:
+        print("Fatal:", e)
 
 
 def helmert_transformation(A, B):
@@ -91,44 +96,48 @@ def plot_transformation(A, A_transformed, B):
 def start():
     # Burada resimlerin içinde eşleştirme yaparak başlıcak buradakı
 
-    a, faces1 = get_landmarks("data/faces/umit_kose_2.jpg")
-    b, faces2 = get_landmarks("data/faces/umit_kose.jpg")
+    directory = os.path.dirname(os.path.abspath(__file__)) + "/data/faces"
+    files = os.listdir(directory)
 
-    pca = PCA(n_components=2)
-    pca.fit(a)
-    a_transformed = pca.transform(a)
+    for f in files:
+        result = []
+        a, faces1a = get_landmarks(directory + "/" + f)
+        files2 = os.listdir(directory)
+        print(f)
+        for ff in files2:
+            if f != ff:
+                b, face1b = get_landmarks(directory + "/" + ff)
+                pca = PCA(n_components=2)
+                pca.fit(a)
+                a_transformed = pca.transform(a)
 
-    pca.fit(b)
-    b_transformed = pca.transform(b)
+                pca.fit(b)
+                b_transformed = pca.transform(b)
 
-    # Procrustes
-    matrix1, matrix2, disparity = procrustes(a_transformed, b_transformed)
-    distances = np.linalg.norm(matrix1 - matrix2, axis=1)
-    std_dev = np.std(distances)
-    print(std_dev)
+                # Procrustes
+                matrix1, matrix2, disparity = procrustes(a_transformed, b_transformed)
+                distances = np.linalg.norm(matrix1 - matrix2, axis=1)
+                std_dev = np.std(distances)
 
-    # Frobenius
-    frobenius_norm = norm(matrix1 - matrix2)
+                # Frobenius
+                frobenius_norm = norm(matrix1 - matrix2)
 
-    # Cosine Similarity
-    cosine_similarity = 1 - cosine(matrix1.flatten(), matrix2.flatten())
-    print(cosine_similarity)
+                # Cosine Similarity
+                cosine_similarity = 1 - cosine(matrix1.flatten(), matrix2.flatten())
 
-    # Helmert
-    scale, R, t = helmert_transformation(a, b)
-    print("Donusum matrisi:", R)
-    print("Donusum elemanlarının toplamı:", np.sum(np.abs(R)))
-    # A nokta kümesini dönüştür
-    a_transformed = scale * np.dot(a, R) + t
+                # Helmert
+                scale, R, t = helmert_transformation(a, b)
+                # A nokta kümesini dönüştür
+                a_transformed = scale * np.dot(a, R) + t
 
-    # RMSE'yi hesapla
-    rmse = calculate_rmse(a_transformed, b)
-    plot_transformation(a, a_transformed, b)
-
-
-
-
-
+                # RMSE'yi hesapla
+                rmse = calculate_rmse(a_transformed, b)
+                # plot_transformation(a, a_transformed, b)
+                result.append([f, ff, disparity, std_dev, frobenius_norm, cosine_similarity, rmse])
+        result_path = os.path.dirname(os.path.abspath(__file__)) + "/results/" + f + ".csv"
+        with open(result_path, mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(result)
 
 
 start()
