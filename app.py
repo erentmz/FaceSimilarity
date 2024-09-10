@@ -102,42 +102,65 @@ def start():
     for f in files:
         result = []
         a, faces1a = get_landmarks(directory + "/" + f)
+        # Çene hattını çıkar:
+        a = a[17:] # Sadece 17. indeksten sonrasını al
         files2 = os.listdir(directory)
         print(f)
         for ff in files2:
-            if f != ff:
-                b, face1b = get_landmarks(directory + "/" + ff)
-                pca = PCA(n_components=2)
-                pca.fit(a)
-                a_transformed = pca.transform(a)
+            b, face1b = get_landmarks(directory + "/" + ff)
+            # Çene hattını çıkar:
+            b = b[17:] # sadece 17. indeksten sonrasını al
+            pca = PCA(n_components=2)
+            pca.fit(a)
+            a_transformed = pca.transform(a)
 
-                pca.fit(b)
-                b_transformed = pca.transform(b)
+            pca.fit(b)
+            b_transformed = pca.transform(b)
 
-                # Procrustes
-                matrix1, matrix2, disparity = procrustes(a_transformed, b_transformed)
-                distances = np.linalg.norm(matrix1 - matrix2, axis=1)
-                std_dev = np.std(distances)
+            # Procrustes
+            matrix1, matrix2, procrustes_disparity = procrustes(a_transformed, b_transformed)
+            procrustes_distances = np.linalg.norm(matrix1 - matrix2, axis=1)
+            procrustes_std_dev = np.std(procrustes_distances)
+            procrustes_max_distance = np.max(procrustes_distances)
 
-                # Frobenius
-                frobenius_norm = norm(matrix1 - matrix2)
+            # Frobenius
+            frobenius_norm = norm(matrix1 - matrix2)
 
-                # Cosine Similarity
-                cosine_similarity = 1 - cosine(matrix1.flatten(), matrix2.flatten())
+            # Cosine Similarity
+            cosine_similarity = 1 - cosine(matrix1.flatten(), matrix2.flatten())
 
-                # Helmert
-                scale, R, t = helmert_transformation(a, b)
-                # A nokta kümesini dönüştür
-                a_transformed = scale * np.dot(a, R) + t
+            # Helmert
+            scale, R, t = helmert_transformation(a, b)
+            helmert_max_R = np.max(R)
 
-                # RMSE'yi hesapla
-                rmse = calculate_rmse(a_transformed, b)
-                # plot_transformation(a, a_transformed, b)
-                result.append([f, ff, disparity, std_dev, frobenius_norm, cosine_similarity, rmse])
-        result_path = os.path.dirname(os.path.abspath(__file__)) + "/results/" + f + ".csv"
+            # A nokta kümesini dönüştür
+            a_transformed = scale * np.dot(a, R) + t
+            # RMSE'yi hesapla
+            helmert_rmse = calculate_rmse(a_transformed, b)
+            # plot_transformation(a, a_transformed, b)
+            result.append([f, ff, procrustes_disparity, procrustes_std_dev, procrustes_max_distance, helmert_max_R,
+                           helmert_rmse, frobenius_norm, cosine_similarity])
+
+        # for r in result:
+        #     print(r)
+
+        result_path = os.path.dirname(os.path.abspath(__file__)) + "/results/" + f.replace(".jpg", "") + "cenesiz.csv"
+        header = ["Source", "Target", "procrustes disparity", "procrustes std_dev", "procrustes max_distance",
+                  "helmert max_R",
+                  "helmert rmse", "frobenius norm", "cosine similarity"]
         with open(result_path, mode="w", newline="") as file:
             writer = csv.writer(file)
+            writer.writerow(header)
             writer.writerows(result)
 
+
+
+
+# def get_order_by_max(result, column_index, val):
+#     return 1
+#
+#
+# def get_order_by_min(result, column_index, val):
+#     return -1
 
 start()
