@@ -103,13 +103,13 @@ def start():
         result = []
         a, faces1a = get_landmarks(directory + "/" + f)
         # Çene hattını çıkar:
-        a = a[17:] # Sadece 17. indeksten sonrasını al
+        a = a[27:] # Sadece 17. indeksten sonrasını al
         files2 = os.listdir(directory)
         print(f)
         for ff in files2:
             b, face1b = get_landmarks(directory + "/" + ff)
             # Çene hattını çıkar:
-            b = b[17:] # sadece 17. indeksten sonrasını al
+            b = b[27:] # sadece 17. indeksten sonrasını al
             pca = PCA(n_components=2)
             pca.fit(a)
             a_transformed = pca.transform(a)
